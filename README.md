@@ -2,7 +2,7 @@
 
 A tiny, framework-agnostic reactive state container with zero dependencies.
 
-> 🚧 Work in progress: the core store, selectors, actions and middleware are done. A React adapter is coming next.
+> 🚧 Work in progress: all features are done (core store, selectors, actions, middleware and a React adapter). Packaging, types and CI are next.
 
 ## Install
 
@@ -210,6 +210,55 @@ persist(init, {
 
 **Robust by default.** If `localStorage` doesn't exist (Node, server rendering) or throws when used (Safari private mode, sandboxed iframes), the store keeps working in memory. Corrupt or malformed saved data, a failed migration, or a full storage quota are reported to `onError`, and the store falls back to its initial state rather than crashing.
 
+## React
+
+The core has no dependencies. React support is a separate entry point, `tiny-store/react`, which needs React 18 or newer.
+
+```jsx
+import { createStore, shallowEqual } from 'tiny-store';
+import { useStore } from 'tiny-store/react';
+
+const counter = createStore((set) => ({
+  count: 0,
+  label: 'clicks',
+  increment: () => set((s) => ({ count: s.count + 1 })),
+}));
+
+function Counter() {
+  const count = useStore(counter, (s) => s.count);
+  const increment = useStore(counter, (s) => s.increment);
+  return <button onClick={increment}>{count}</button>;
+}
+```
+
+### `useStore(store, selector?, equalityFn?)`
+
+Returns `selector(state)` and re-renders the component only when that value changes.
+
+- Without a selector it returns the whole state, which re-renders on every change. Select only what the component needs.
+- Use `shallowEqual` when the selector builds a new object or array, so unrelated changes don't cause re-renders:
+
+  ```js
+  const { count, label } = useStore(counter, (s) => ({ count: s.count, label: s.label }), shallowEqual);
+  ```
+
+- Inline selectors are fine. There's no need to wrap them in `useCallback`.
+- It unsubscribes automatically when the component unmounts, and works with StrictMode and server rendering (`renderToString`).
+
+### `createStoreHook(store)`
+
+Binds a store to a hook, so components don't need to import the store:
+
+```js
+export const useCounter = createStoreHook(counter);
+
+// in a component
+const count = useCounter((s) => s.count);
+
+// outside React
+useCounter.store.getState().increment();
+```
+
 ## Design decisions
 
 - **Immutable updates.** Every change produces a new state object, so `prevState` is always an accurate snapshot.
@@ -224,6 +273,9 @@ persist(init, {
 - **Middleware is just function composition.** Each middleware takes an initializer and returns one, wrapping `set` on the way in. It also replaces `api.setState`, so updates from outside the store go through the same chain as updates from actions. There's no plugin system to learn.
 - **Middleware lives in a separate entry point** (`tiny-store/middleware`), so apps that don't use it never bundle it.
 - **Persistence never breaks the app.** Storage is an optional enhancement: every failure is reported and the store carries on in memory.
+- **The React hook uses `useSyncExternalStore`.** This is React's official API for external stores. It guarantees that every component sees the same state during concurrent rendering (no "tearing") and handles server rendering.
+- **Selected values are cached.** `useSyncExternalStore` re-renders forever if its snapshot is a new object every time. The hook remembers the last state and slice, and keeps the old slice when `equalityFn` says nothing changed, so even a selector that returns a new object can't cause an infinite loop.
+- **React is an optional peer dependency.** Apps that don't use React don't install or bundle it.
 - **Independent subscriptions.** Subscribing the same function twice creates two subscriptions, and each `unsubscribe` removes only its own.
 
 ## Development
