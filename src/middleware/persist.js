@@ -55,12 +55,9 @@ const isStorageLike = (value) =>
   );
 
 const isPlainObject = (value) =>
-  value !== null &&
-  typeof value === 'object' &&
-  !Array.isArray(value);
+  value !== null && typeof value === 'object' && !Array.isArray(value);
 
-const defaultOnError = (error) =>
-  console.warn('[tiny-store/persist]', error);
+const defaultOnError = (error) => console.warn('[tiny-store/persist]', error);
 
 /**
  * Saves the store to storage after every change and restores it when the
@@ -107,8 +104,7 @@ export function persist(init, options) {
 
   return (set, get, api) => {
     // Resolved per store, so each store probes the environment it runs in.
-    const storage =
-      options.storage === undefined ? getDefaultStorage() : options.storage;
+    const storage = options.storage === undefined ? getDefaultStorage() : options.storage;
 
     const save = () => {
       if (!storage) return;

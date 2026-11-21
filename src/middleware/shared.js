@@ -6,5 +6,4 @@
  * @param {T | ((set: any, get: any, api: any) => T)} init
  * @returns {(set: any, get: any, api: any) => T}
  */
-export const toInitializer = (init) =>
-  typeof init === 'function' ? init : () => init;
+export const toInitializer = (init) => (typeof init === 'function' ? init : () => init);

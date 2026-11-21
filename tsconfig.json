@@ -1,0 +1,15 @@
+{
+  // Only used to type-check the hand-written definitions in types/ and the
+  // type tests. The library itself is plain JavaScript.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": false,
+    "types": [],
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["types/**/*.d.ts", "test/**/*.test-d.ts"]
+}

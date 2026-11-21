@@ -1,29 +1,73 @@
 {
-  "name": "tiny-store",
+  "name": "@your-npm-username/tiny-store",
   "version": "0.1.0",
-  "description": "A tiny, framework-agnostic reactive state container.",
+  "description": "A tiny (~1 KB), framework-agnostic reactive state container with selectors, middleware and a React hook.",
   "type": "module",
-  "main": "./src/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.cts",
   "exports": {
-    ".": "./src/index.js",
-    "./middleware": "./src/middleware/index.js",
-    "./react": "./src/react.js"
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./middleware": {
+      "import": {
+        "types": "./dist/middleware.d.ts",
+        "default": "./dist/middleware.js"
+      },
+      "require": {
+        "types": "./dist/middleware.d.cts",
+        "default": "./dist/middleware.cjs"
+      }
+    },
+    "./react": {
+      "import": {
+        "types": "./dist/react.d.ts",
+        "default": "./dist/react.js"
+      },
+      "require": {
+        "types": "./dist/react.d.cts",
+        "default": "./dist/react.cjs"
+      }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
-    "src"
+    "dist"
   ],
   "sideEffects": false,
   "scripts": {
+    "build": "tsup && node scripts/copy-types.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsc -p tsconfig.json",
+    "test:dist": "node scripts/smoke-test.js",
+    "check:package": "publint --strict && attw --pack . --profile node16",
+    "prepack": "npm run build",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "ci": "npm run lint && npm run format:check && npm run typecheck && npm run coverage && npm run build && npm run test:dist && npm run check:package"
   },
   "keywords": [
     "state",
     "store",
     "state-management",
     "reactive",
-    "observable"
+    "observable",
+    "react",
+    "hooks",
+    "middleware",
+    "persist",
+    "zustand-alternative"
   ],
   "license": "MIT",
   "engines": {
@@ -38,11 +82,35 @@
     }
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@eslint/js": "^10.0.1",
     "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.3.0",
     "@vitest/coverage-v8": "^5.1.1",
+    "eslint": "^10.15.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
     "jsdom": "^31.0.1",
+    "prettier": "^3.10.1",
+    "publint": "^0.3.25",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "tsup": "^9.0.0",
+    "typescript": "^7.0.2",
     "vitest": "^5.1.1"
+  },
+  "author": "YOUR NAME",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YOUR-GITHUB-USERNAME/tiny-store.git"
+  },
+  "homepage": "https://github.com/YOUR-GITHUB-USERNAME/tiny-store#readme",
+  "bugs": {
+    "url": "https://github.com/YOUR-GITHUB-USERNAME/tiny-store/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }

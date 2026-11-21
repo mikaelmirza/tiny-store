@@ -134,7 +134,10 @@ describe('createStore with an initializer (actions)', () => {
         },
       }));
       const statuses = [];
-      store.subscribe((s) => s.status, (status) => statuses.push(status));
+      store.subscribe(
+        (s) => s.status,
+        (status) => statuses.push(status)
+      );
 
       await store.getState().loadUser(7);
 

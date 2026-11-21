@@ -99,9 +99,7 @@ describe('useStore', () => {
 
     it('does not re-render for derived values that stay the same', () => {
       const store = createStore({ count: 0 });
-      const { renders } = renderCounting(() =>
-        useStore(store, (s) => s.count % 2 === 0)
-      );
+      const { renders } = renderCounting(() => useStore(store, (s) => s.count % 2 === 0));
 
       act(() => store.setState({ count: 2 })); // still even
 
@@ -233,9 +231,7 @@ describe('useStore', () => {
 
     it('keeps several components in sync with one store', () => {
       const store = makeCounter();
-      const Count = ({ id }) => (
-        <p data-testid={id}>{useStore(store, (s) => s.count)}</p>
-      );
+      const Count = ({ id }) => <p data-testid={id}>{useStore(store, (s) => s.count)}</p>;
       render(
         <>
           <Count id="a" />

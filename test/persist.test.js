@@ -19,8 +19,7 @@ const read = (storage, key = 'settings') => JSON.parse(storage.data.get(key));
 const settings = (set) => ({
   theme: 'light',
   fontSize: 14,
-  toggleTheme: () =>
-    set((s) => ({ theme: s.theme === 'light' ? 'dark' : 'light' })),
+  toggleTheme: () => set((s) => ({ theme: s.theme === 'light' ? 'dark' : 'light' })),
 });
 
 afterEach(() => {
@@ -99,9 +98,7 @@ describe('persist', () => {
         throw quotaError;
       });
       const onError = vi.fn();
-      const store = createStore(
-        persist(settings, { key: 'settings', storage, onError })
-      );
+      const store = createStore(persist(settings, { key: 'settings', storage, onError }));
 
       store.getState().toggleTheme();
 
@@ -193,9 +190,7 @@ describe('persist', () => {
     ])('falls back to the initial state for %s', (_, raw) => {
       const storage = memoryStorage({ settings: raw });
       const onError = vi.fn();
-      const store = createStore(
-        persist(settings, { key: 'settings', storage, onError })
-      );
+      const store = createStore(persist(settings, { key: 'settings', storage, onError }));
 
       expect(store.getState().theme).toBe('light');
       expect(onError).toHaveBeenCalledTimes(1);
@@ -207,12 +202,12 @@ describe('persist', () => {
         throw new Error('SecurityError');
       });
       const onError = vi.fn();
-      const store = createStore(
-        persist(settings, { key: 'settings', storage, onError })
-      );
+      const store = createStore(persist(settings, { key: 'settings', storage, onError }));
 
       expect(store.getState().theme).toBe('light');
-      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'SecurityError' }));
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'SecurityError' })
+      );
     });
 
     it('warns on the console by default', () => {
@@ -266,9 +261,12 @@ describe('persist', () => {
     });
 
     it.each([
-      ['throws', () => {
-        throw new Error('bad migration');
-      }],
+      [
+        'throws',
+        () => {
+          throw new Error('bad migration');
+        },
+      ],
       ['returns a non-object', () => null],
     ])('falls back to the initial state when migrate %s', (_, migrate) => {
       const storage = memoryStorage({ settings: saved({ dark: true }, 1) });
@@ -300,9 +298,7 @@ describe('persist', () => {
         throw new Error('nope');
       });
       const onError = vi.fn();
-      const store = createStore(
-        persist(settings, { key: 'settings', storage, onError })
-      );
+      const store = createStore(persist(settings, { key: 'settings', storage, onError }));
 
       store.persist.clear();
 
@@ -374,9 +370,9 @@ describe('persist', () => {
     });
 
     it('throws a TypeError for storage missing required methods', () => {
-      expect(() =>
-        persist(settings, { key: 'k', storage: { getItem() {} } })
-      ).toThrow(TypeError);
+      expect(() => persist(settings, { key: 'k', storage: { getItem() {} } })).toThrow(
+        TypeError
+      );
     });
   });
 });
@@ -403,7 +399,9 @@ describe('combining middleware', () => {
 
   it('works with a plain object as the innermost initial state', () => {
     const storage = memoryStorage({ k: saved({ count: 7 }) });
-    const store = createStore(persist(logger({ count: 0 }, { log: () => {} }), { key: 'k', storage }));
+    const store = createStore(
+      persist(logger({ count: 0 }, { log: () => {} }), { key: 'k', storage })
+    );
     expect(store.getState().count).toBe(7);
   });
 });

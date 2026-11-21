@@ -120,9 +120,7 @@ export function createStore(init) {
     }
 
     // Skip no-op updates so listeners only fire on real changes.
-    const changed = Object.keys(patch).some(
-      (key) => !Object.is(state[key], patch[key])
-    );
+    const changed = Object.keys(patch).some((key) => !Object.is(state[key], patch[key]));
     if (!changed) return;
 
     const prevState = state;

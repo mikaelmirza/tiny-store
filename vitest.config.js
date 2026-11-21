@@ -6,6 +6,8 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**/*.js'],
       reporter: ['text', 'html'],
+      // Fail CI if any code goes untested.
+      thresholds: { 100: true },
     },
   },
 });

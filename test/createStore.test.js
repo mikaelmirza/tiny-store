@@ -182,9 +182,9 @@ describe('createStore', () => {
     it('skips a listener that was unsubscribed earlier in the same notification', () => {
       const store = createStore({ count: 0 });
       const victim = vi.fn();
-      let unsubVictim;
+      // The first listener runs before the victim and removes it.
       store.subscribe(() => unsubVictim());
-      unsubVictim = store.subscribe(victim);
+      const unsubVictim = store.subscribe(victim);
 
       store.setState({ count: 1 });
 

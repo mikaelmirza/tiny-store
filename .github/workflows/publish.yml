@@ -1,0 +1,41 @@
+name: Publish to npm
+
+# Runs when you publish a GitHub release (e.g. tag v0.2.0).
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  # Lets npm verify this workflow's identity, so no npm token is stored in
+  # GitHub, and publishes a provenance statement that links each version to
+  # the exact commit and workflow that built it.
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check the release tag matches package.json
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          if [ "$VERSION" != "${{ github.event.release.tag_name }}" ]; then
+            echo "Release tag ${{ github.event.release.tag_name }} does not match package.json version $VERSION"
+            exit 1
+          fi
+
+      # Same checks as CI, so a broken build can never be published.
+      - run: npm run ci
+
+      # Scoped packages are private by default; --access public makes it free
+      # and installable by anyone. `prepack` rebuilds dist/ first.
+      - run: npm publish --access public --provenance
