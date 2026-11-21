@@ -2,7 +2,7 @@
 
 A tiny, framework-agnostic reactive state container with zero dependencies.
 
-> 🚧 Work in progress: the core store, selectors and actions are done. Middleware and a React adapter are coming next.
+> 🚧 Work in progress: the core store, selectors, actions and middleware are done. A React adapter is coming next.
 
 ## Install
 
@@ -140,6 +140,76 @@ shallowEqual([1, 2], [1, 2]);                 // true
 shallowEqual({ a: { x: 1 } }, { a: { x: 1 } }); // false (nested objects differ)
 ```
 
+## Middleware
+
+Middleware wraps an initializer (or a plain initial-state object) and returns a new initializer, so you can stack them:
+
+```js
+import { createStore } from 'tiny-store';
+import { logger, persist } from 'tiny-store/middleware';
+
+const settings = createStore(
+  persist(
+    logger(
+      (set) => ({
+        theme: 'light',
+        toggleTheme: () =>
+          set((s) => ({ theme: s.theme === 'light' ? 'dark' : 'light' })),
+      }),
+      { name: 'settings' }
+    ),
+    { key: 'app-settings' }
+  )
+);
+```
+
+Both middleware handle updates from actions *and* from `store.setState` outside the store.
+
+### `logger(init, options?)`
+
+Logs every real change: which keys changed, the state before and after, and how long the update took (including listeners). No-op updates aren't logged.
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `name` | `'store'` | Label shown in each log line. |
+| `enabled` | `true` | Set to `false` to turn logging off (e.g. in production) without removing the middleware. |
+| `log` | `console.log` | `(entry) => void`. Receives `{ name, prevState, nextState, changedKeys, durationMs, error? }`. |
+
+Default output looks like `[settings] changed theme in 0.04ms`, with the full entry attached for inspection.
+
+### `persist(init, options)`
+
+Saves state to storage after every change and restores it when the store is created. Restoring happens *during* creation, so the first state you read is already the saved one: no flash of default values and no extra notification.
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `key` | (required) | The storage key to save under. |
+| `storage` | `localStorage` | Any object with `getItem`, `setItem` and `removeItem`. Pass `null` to switch persistence off. |
+| `version` | `0` | Bump it when the shape of saved state changes. |
+| `migrate` | (none) | `(persisted, fromVersion) => state`. Upgrades older saved state. Without it, saved state from another version is discarded. |
+| `partialize` | whole state | `(state) => partialState`. Picks what to save. Functions are always left out. |
+| `merge` | shallow merge | `(persisted, current) => state`. Combines saved and initial state; saved values win by default. |
+| `onError` | `console.warn` | Called when reading, parsing, migrating or saving fails. |
+
+The store also gets a `store.persist` object:
+
+- `store.persist.clear()` removes the saved copy (the in-memory state stays as it is).
+- `store.persist.storage` is the storage in use, or `null` if persistence is off.
+
+Migrating between versions:
+
+```js
+// Version 1 saved { dark: true }. Version 2 saves { theme: 'dark' }.
+persist(init, {
+  key: 'app-settings',
+  version: 2,
+  migrate: (old, fromVersion) =>
+    fromVersion === 1 ? { theme: old.dark ? 'dark' : 'light' } : old,
+});
+```
+
+**Robust by default.** If `localStorage` doesn't exist (Node, server rendering) or throws when used (Safari private mode, sandboxed iframes), the store keeps working in memory. Corrupt or malformed saved data, a failed migration, or a full storage quota are reported to `onError`, and the store falls back to its initial state rather than crashing.
+
 ## Design decisions
 
 - **Immutable updates.** Every change produces a new state object, so `prevState` is always an accurate snapshot.
@@ -151,6 +221,9 @@ shallowEqual({ a: { x: 1 } }, { a: { x: 1 } }); // false (nested objects differ)
 - **No leaked subscriptions.** If a `fireImmediately` listener throws, the subscription is removed, since the caller never received its `unsubscribe` function.
 - **Actions are just state.** Keeping functions in the state object means there's no separate "actions" API to learn, and selectors can pick actions like any other value. Since actions never change, they don't trigger listeners.
 - **Fail loudly during initialization.** Using `set` or `get` before the initializer returns would otherwise silently read or merge into `undefined`, so it throws an error that explains what to do instead.
+- **Middleware is just function composition.** Each middleware takes an initializer and returns one, wrapping `set` on the way in. It also replaces `api.setState`, so updates from outside the store go through the same chain as updates from actions. There's no plugin system to learn.
+- **Middleware lives in a separate entry point** (`tiny-store/middleware`), so apps that don't use it never bundle it.
+- **Persistence never breaks the app.** Storage is an optional enhancement: every failure is reported and the store carries on in memory.
 - **Independent subscriptions.** Subscribing the same function twice creates two subscriptions, and each `unsubscribe` removes only its own.
 
 ## Development
