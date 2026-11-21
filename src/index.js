@@ -51,29 +51,63 @@ const isPlainObject = (value) =>
     Object.getPrototypeOf(value) === null);
 
 /**
- * Creates a new store.
+ * A function that builds the initial state, usually including actions.
  *
  * @template {Record<string, unknown>} T
- * @param {T} initialState A plain object holding the initial state.
+ * @callback Initializer
+ * @param {Store<T>['setState']} set Updates the state (same as `store.setState`).
+ * @param {Store<T>['getState']} get Reads the current state (same as `store.getState`).
+ * @param {Store<T>} api The whole store, for advanced use such as middleware.
+ * @returns {T}
+ */
+
+/**
+ * Creates a new store.
+ *
+ * Pass either a plain object with the initial state, or an initializer
+ * function `(set, get, api) => state` whose returned object can include
+ * actions: functions that call `set` and `get`.
+ *
+ * @template {Record<string, unknown>} T
+ * @param {T | Initializer<T>} init
  * @returns {Store<T>}
  */
-export function createStore(initialState) {
-  if (!isPlainObject(initialState)) {
-    throw new TypeError('createStore: initialState must be a plain object');
+export function createStore(init) {
+  if (typeof init !== 'function' && !isPlainObject(init)) {
+    throw new TypeError(
+      'createStore: expected a plain object or an initializer function'
+    );
   }
 
   /** @type {T} */
-  let state = { ...initialState };
+  let state;
+  let initializing = false;
 
   // Each subscription gets its own record, so the same function can be
   // subscribed twice and each unsubscribe removes only its own entry.
   /** @type {Set<{ listener: Listener<T> }>} */
   const subscriptions = new Set();
 
-  const getState = () => state;
+  // State doesn't exist until the initializer returns, so calling `get` or
+  // `set` synchronously inside it is a mistake. Fail loudly instead of
+  // silently returning or merging into `undefined`.
+  const assertReady = (method) => {
+    if (initializing) {
+      throw new Error(
+        `${method}: cannot be called while the store is initializing. ` +
+          'Call it from inside an action instead.'
+      );
+    }
+  };
+
+  const getState = () => {
+    assertReady('getState');
+    return state;
+  };
 
   /** @param {Update<T>} update */
   const setState = (update) => {
+    assertReady('setState');
     const patch = typeof update === 'function' ? update(state) : update;
 
     // An updater may return nothing to signal "no change".
@@ -126,6 +160,8 @@ export function createStore(initialState) {
 
   /** @type {SubscribeFn<T>} */
   const subscribe = (selectorOrListener, maybeListener, options = {}) => {
+    assertReady('subscribe');
+
     // subscribe(listener) → listen to every change.
     if (maybeListener === undefined) {
       return addSubscription(selectorOrListener);
@@ -183,5 +219,24 @@ export function createStore(initialState) {
     };
   };
 
-  return { getState, setState, subscribe };
+  /** @type {Store<T>} */
+  const api = { getState, setState, subscribe };
+
+  if (typeof init === 'function') {
+    initializing = true;
+    let result;
+    try {
+      result = init(setState, getState, api);
+    } finally {
+      initializing = false;
+    }
+    if (!isPlainObject(result)) {
+      throw new TypeError('createStore: the initializer must return a plain object');
+    }
+    state = { ...result };
+  } else {
+    state = { ...init };
+  }
+
+  return api;
 }

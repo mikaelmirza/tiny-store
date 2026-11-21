@@ -2,7 +2,7 @@
 
 A tiny, framework-agnostic reactive state container with zero dependencies.
 
-> 🚧 Work in progress: the core store and selectors are done. Actions, middleware and a React adapter are coming next.
+> 🚧 Work in progress: the core store, selectors and actions are done. Middleware and a React adapter are coming next.
 
 ## Install
 
@@ -25,6 +25,23 @@ store.setState({ count: 1 });                   // count: 0 → 1
 store.setState((s) => ({ count: s.count + 1 })); // count: 1 → 2
 
 unsubscribe();
+```
+
+Keep state and the functions that change it together, as actions:
+
+```js
+const counter = createStore((set, get) => ({
+  count: 0,
+  increment: () => set((s) => ({ count: s.count + 1 })),
+  reset: () => set({ count: 0 }),
+  logCount: () => console.log(get().count),
+}));
+
+const { increment, reset } = counter.getState();
+increment();
+increment();
+counter.getState().count; // 2
+reset();
 ```
 
 Listen to just one slice of state:
@@ -55,6 +72,35 @@ store.subscribe(
 Creates a store. `initialState` must be a plain object. It is copied, so later changes to the original object don't affect the store.
 
 Returns `{ getState, setState, subscribe }`.
+
+### `createStore((set, get, api) => initialState)`
+
+Creates a store from an initializer function, which runs once and returns the initial state. The returned object can include **actions**: functions that change the state by calling `set` and read it with `get`.
+
+- `set` is the same as `store.setState`, and `get` is the same as `store.getState`.
+- `api` is the store itself (`{ getState, setState, subscribe }`), mainly for middleware.
+
+Actions live in the state, so you call them with `store.getState().increment()` or destructure them once (`const { increment } = store.getState()`). Because `set` merges, they survive every update.
+
+Actions can take arguments, call other actions through `get()`, and be `async`:
+
+```js
+const users = createStore((set) => ({
+  user: null,
+  status: 'idle',
+  loadUser: async (id) => {
+    set({ status: 'loading' });
+    try {
+      const res = await fetch(`/api/users/${id}`);
+      set({ user: await res.json(), status: 'done' });
+    } catch {
+      set({ status: 'error' });
+    }
+  },
+}));
+```
+
+Calling `set`, `get` or `subscribe` *while the initializer is still running* throws an error, because the state doesn't exist yet. Call them from inside actions instead.
 
 ### `getState()`
 
@@ -103,6 +149,8 @@ shallowEqual({ a: { x: 1 } }, { a: { x: 1 } }); // false (nested objects differ)
 - **Selectors are built on plain subscriptions.** A selector subscription is just a listener that computes its slice and compares it, so ordering, error isolation and safe unsubscribing all work the same way. A selector that throws is treated like a listener that throws.
 - **No infinite loops from self-updates.** The stored slice is updated *before* the listener runs, so a listener that calls `setState` on its own slice compares against the latest value.
 - **No leaked subscriptions.** If a `fireImmediately` listener throws, the subscription is removed, since the caller never received its `unsubscribe` function.
+- **Actions are just state.** Keeping functions in the state object means there's no separate "actions" API to learn, and selectors can pick actions like any other value. Since actions never change, they don't trigger listeners.
+- **Fail loudly during initialization.** Using `set` or `get` before the initializer returns would otherwise silently read or merge into `undefined`, so it throws an error that explains what to do instead.
 - **Independent subscriptions.** Subscribing the same function twice creates two subscriptions, and each `unsubscribe` removes only its own.
 
 ## Development
