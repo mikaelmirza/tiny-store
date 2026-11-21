@@ -310,6 +310,33 @@ store.persist.clear(); // ✓ typed as PersistApi
 
 Selectors infer their result type, so `useStore(counter, (s) => s.count)` is a `number`.
 
+## Why I built this
+
+Libraries like Zustand and Redux are easy to use, and just as easy to treat as black
+boxes. I wanted to understand what actually happens inside one, and to find out whether I
+could build a state library from scratch to a standard that someone else could depend on:
+tested, typed, documented and published.
+
+The interesting work turned out to be the edge cases, not the happy path. What should
+happen when one listener unsubscribes another in the middle of a notification? When a
+listener throws? When a selector returns a new object on every call, which would send
+React into an infinite render loop? Each question became a decision recorded below, and a
+test that locks it in.
+
+Some trade-offs I made on purpose:
+
+- **Plain JavaScript with hand-written types**, rather than TypeScript source. The code
+  stays approachable, and the types describe the public API, including extras that
+  middleware adds, instead of implementation details.
+- **Listeners are notified synchronously, once per update.** It's simple and predictable.
+  The cost is that several updates in a row notify several times outside React.
+- **`persist` restores state synchronously during store creation.** This means there's
+  never a flash of default values, but for now it only works with synchronous storage like
+  `localStorage`, not IndexedDB or React Native's AsyncStorage.
+
+What I'd build next: batched updates, async storage adapters for `persist`, cross-tab
+sync through the browser's `storage` event, and benchmarks against Zustand.
+
 ## Design decisions
 
 - **Immutable updates.** Every change produces a new state object, so `prevState` is always an accurate snapshot.
