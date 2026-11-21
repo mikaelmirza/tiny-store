@@ -16,9 +16,33 @@
  * @property {() => T} getState Returns the current state snapshot.
  * @property {(update: Update<T>) => void} setState Shallow-merges a partial
  *   state (or the result of an updater function) into the current state.
- * @property {(listener: Listener<T>) => () => void} subscribe Registers a
- *   listener and returns a function that unsubscribes it.
+ * @property {SubscribeFn<T>} subscribe Registers a listener (optionally for
+ *   a selected slice of state) and returns a function that unsubscribes it.
  */
+
+/**
+ * @template S
+ * @typedef {Object} SelectorOptions
+ * @property {(a: S, b: S) => boolean} [equalityFn] Decides whether the
+ *   selected slice changed. Defaults to `Object.is`; pass `shallowEqual`
+ *   for selectors that return new objects or arrays.
+ * @property {boolean} [fireImmediately] Call the listener once right away
+ *   with the current slice. Defaults to `false`.
+ */
+
+/**
+ * @template {Record<string, unknown>} T
+ * @typedef {{
+ *   (listener: Listener<T>): () => void;
+ *   <S>(
+ *     selector: (state: T) => S,
+ *     listener: (slice: S, prevSlice: S) => void,
+ *     options?: SelectorOptions<S>
+ *   ): () => void;
+ * }} SubscribeFn
+ */
+
+export { shallowEqual } from './utils.js';
 
 const isPlainObject = (value) =>
   value !== null &&
@@ -100,8 +124,55 @@ export function createStore(initialState) {
     }
   };
 
+  /** @type {SubscribeFn<T>} */
+  const subscribe = (selectorOrListener, maybeListener, options = {}) => {
+    // subscribe(listener) → listen to every change.
+    if (maybeListener === undefined) {
+      return addSubscription(selectorOrListener);
+    }
+
+    // subscribe(selector, listener, options) → listen to one slice.
+    const selector = selectorOrListener;
+    const listener = maybeListener;
+    if (typeof selector !== 'function') {
+      throw new TypeError('subscribe: selector must be a function');
+    }
+    if (typeof listener !== 'function') {
+      throw new TypeError('subscribe: listener must be a function');
+    }
+    const { equalityFn = Object.is, fireImmediately = false } = options;
+    if (typeof equalityFn !== 'function') {
+      throw new TypeError('subscribe: equalityFn must be a function');
+    }
+
+    let currentSlice = selector(state);
+
+    const unsubscribe = addSubscription((nextState) => {
+      const nextSlice = selector(nextState);
+      if (equalityFn(currentSlice, nextSlice)) return;
+      const prevSlice = currentSlice;
+      // Update before calling the listener, so a listener that calls
+      // setState sees (and compares against) the latest slice.
+      currentSlice = nextSlice;
+      listener(nextSlice, prevSlice);
+    });
+
+    if (fireImmediately) {
+      try {
+        listener(currentSlice, currentSlice);
+      } catch (error) {
+        // The caller never receives `unsubscribe` if we throw, so clean up
+        // here instead of leaking a subscription they can't remove.
+        unsubscribe();
+        throw error;
+      }
+    }
+
+    return unsubscribe;
+  };
+
   /** @param {Listener<T>} listener */
-  const subscribe = (listener) => {
+  const addSubscription = (listener) => {
     if (typeof listener !== 'function') {
       throw new TypeError('subscribe: listener must be a function');
     }
